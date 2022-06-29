@@ -1,0 +1,37 @@
+{
+  "name": "functions",
+  "description": "Cloud Functions for Firebase",
+  "scripts": {
+    "lint": "eslint .",
+    "serve": "firebase emulators:start  --inspect-functions --import=./emulators.backup",
+    "backup": "firebase emulators:export ./emulators.backup",
+    "shell": "firebase functions:shell",
+    "start": "npm run serve",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "restart": "npx kill-port 4400,4500,4000,8080,9229,5001,9199 && npm start"
+  },
+  "engines": {
+    "node": "16"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "@mailchimp/mailchimp_marketing": "^3.0.75",
+    "@mailchimp/mailchimp_transactional": "^1.0.47",
+    "contentful": "^9.1.27",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "express": "^4.17.1",
+    "firebase-admin": "10.3.0",
+    "firebase-functions": "3.21.2",
+    "formidable-serverless": "^1.1.1",
+    "md5": "^2.3.0"
+  },
+  "devDependencies": {
+    "@babel/eslint-parser": "^7.17.0",
+    "eslint": "^8.9.0",
+    "eslint-config-google": "^0.14.0",
+    "firebase-functions-test": "^0.2.0"
+  },
+  "private": true
+}
