@@ -28,6 +28,7 @@ app.post("/contentful", async (req, res) => {
     let entryId;
 
     let imageUrl = undefined;
+    let snapshot = undefined;
     let shouldHandleResponse = true;
 
     switch (topicType) {
@@ -50,43 +51,87 @@ app.post("/contentful", async (req, res) => {
             break;
           case "publish":
             try {
-              shouldHandleResponse = false;
-              console.log("Content was published");
-              try {
-                imageUrl = await contentfulClient.getAsset(
-                  req.body.fields.coverPhoto["en-US"].sys.id
-                );
-                if (imageUrl?.fields?.file?.url) {
-                  imageUrl = `https:${imageUrl.fields.file.url}`;
-                } else {
-                  functions.logger.error(
-                    new Error("Retrieved asset, but was malformed")
+              snapshot = await admin
+                .firestore()
+                .collection("publishedContentId")
+                .where("uid", "==", entryId)
+                .get();
+              if (snapshot.empty) {
+                snapshot = await admin
+                  .firestore()
+                  .collection("publishedContentId")
+                  .add({
+                    uid: entryId,
+                  });
+                shouldHandleResponse = false;
+                console.log("Content was published");
+                try {
+                  imageUrl = await contentfulClient.getAsset(
+                    req.body.fields.coverPhoto["en-US"].sys.id
                   );
-                }
-              } catch (error) {
-                functions.logger.error(error);
-              }
-              admin
-                .messaging()
-                .send({
-                  notification: {
-                    title: req.body.fields.pushTitle["en-US"],
-                    body: req.body.fields.pushBody["en-US"],
-                    imageUrl,
-                  },
-                  data: {
-                    id: entryId,
-                    type: "article",
-                  },
-                  topic: "newArticles",
-                })
-                .then(() => {
-                  res.sendStatus(200);
-                })
-                .catch((error) => {
-                  res.sendStatus(500);
+                  functions.logger.log("imageUrl1");
+                  functions.logger.log(imageUrl);
+
+                  if (imageUrl?.fields?.file?.url) {
+                    functions.logger.log("imageUrl2");
+                    functions.logger.log(imageUrl?.fields?.file?.url);
+                    imageUrl = `https:${imageUrl.fields.file.url}`;
+                  } else {
+                    functions.logger.error(
+                      new Error("Retrieved asset, but was malformed")
+                    );
+                  }
+                } catch (error) {
                   functions.logger.error(error);
-                });
+                }
+                functions.logger.log("imageUrl3");
+                functions.logger.log(imageUrl);
+                admin
+                  .messaging()
+                  .send({
+                    notification: {
+                      title: req.body.fields.pushTitle["en-US"],
+                      body: req.body.fields.pushBody["en-US"],
+                      imageUrl,
+                    },
+                    android: {
+                      notification: {
+                        imageUrl,
+                      },
+                    },
+                    apns: {
+                      payload: {
+                        aps: {
+                          "mutable-content": 1,
+                        },
+                      },
+                      fcm_options: {
+                        image: imageUrl,
+                      },
+                    },
+                    webpush: {
+                      headers: {
+                        image: imageUrl,
+                      },
+                    },
+                    data: {
+                      id: entryId,
+                      type: "article",
+                    },
+                    topic: "newArticles",
+                  })
+                  .then(() => {
+                    res.sendStatus(200);
+                  })
+                  .catch((error) => {
+                    res.sendStatus(500);
+                    functions.logger.error(error);
+                  });
+              } else {
+                functions.logger.warn(
+                  "Already sent a push for this content! Skipping..."
+                );
+              }
             } catch (error) {
               res.sendStatus(500);
               functions.logger.error(error);
